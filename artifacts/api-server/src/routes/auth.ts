@@ -4,6 +4,7 @@ import { eq, and, gt, isNull } from "drizzle-orm";
 import { hashPassword, verifyPassword, generateToken } from "../lib/auth";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import crypto from "crypto";
+import { Resend } from "resend";
 
 const router: IRouter = Router();
 
@@ -105,7 +106,44 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
 
   await db.insert(passwordResetTokensTable).values({ userId: user.id, token, expiresAt });
 
-  res.json({ success: true, token, message: "Reset link generated." });
+  const portalOrigin = (req.body.portalOrigin as string) || "";
+  const resetUrl = portalOrigin
+    ? `${portalOrigin}/reset-password?token=${token}`
+    : `https://vconic.replit.app/reset-password?token=${token}`;
+
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (resendApiKey) {
+    try {
+      const resend = new Resend(resendApiKey);
+      const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+      await resend.emails.send({
+        from: `vConic Portal <${fromEmail}>`,
+        to: user.email,
+        subject: "Reset your vConic password",
+        html: `
+          <div style="font-family:monospace;background:#111;color:#e5e5e5;padding:32px;border-radius:8px;max-width:480px;margin:0 auto;">
+            <div style="color:#4ade80;font-size:18px;font-weight:bold;margin-bottom:8px;">vConic</div>
+            <h2 style="color:#fff;font-size:20px;margin:0 0 16px;">Password Reset Request</h2>
+            <p style="color:#aaa;font-size:14px;margin:0 0 24px;">
+              We received a request to reset the password for your account (<strong style="color:#e5e5e5;">${user.email}</strong>).
+              Click the button below to set a new password. This link expires in 1 hour.
+            </p>
+            <a href="${resetUrl}"
+              style="display:inline-block;background:#4ade80;color:#111;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px;letter-spacing:0.05em;">
+              RESET PASSWORD
+            </a>
+            <p style="color:#555;font-size:12px;margin:24px 0 0;">
+              If you didn't request this, you can safely ignore this email. Your password will not change.
+            </p>
+          </div>
+        `,
+      });
+    } catch (err) {
+      console.error("Failed to send reset email:", err);
+    }
+  }
+
+  res.json({ success: true, message: "If that email is registered, a reset link has been sent." });
 });
 
 router.post("/auth/reset-password", async (req, res): Promise<void> => {
