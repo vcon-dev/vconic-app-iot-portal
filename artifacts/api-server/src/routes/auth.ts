@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, sessionsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, usersTable, sessionsTable, passwordResetTokensTable } from "@workspace/db";
+import { eq, and, gt, isNull } from "drizzle-orm";
 import { hashPassword, verifyPassword, generateToken } from "../lib/auth";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
+import crypto from "crypto";
 
 const router: IRouter = Router();
 
@@ -82,6 +83,78 @@ router.get("/auth/me", requireAuth, async (req: AuthRequest, res): Promise<void>
     return;
   }
   res.json({ id: user.id, email: user.email, name: user.name, createdAt: user.createdAt });
+});
+
+router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+  const { email } = req.body;
+
+  if (!email) {
+    res.status(400).json({ error: "Missing required fields", message: "email is required" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+
+  if (!user) {
+    res.json({ success: true, message: "If that email is registered, a reset link will be provided." });
+    return;
+  }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+  await db.insert(passwordResetTokensTable).values({ userId: user.id, token, expiresAt });
+
+  const proto = req.get("x-forwarded-proto") ?? req.protocol;
+  const host = req.get("host") ?? "localhost";
+  const basePortalUrl = `${proto}://${host}`;
+  const basePath = req.get("x-forwarded-prefix") ?? "";
+  const resetUrl = `${basePortalUrl}${basePath}/reset-password?token=${token}`;
+
+  res.json({ success: true, resetUrl, message: "Reset link generated." });
+});
+
+router.post("/auth/reset-password", async (req, res): Promise<void> => {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    res.status(400).json({ error: "Missing required fields", message: "token and password are required" });
+    return;
+  }
+
+  if (password.length < 8) {
+    res.status(400).json({ error: "Validation error", message: "Password must be at least 8 characters" });
+    return;
+  }
+
+  const [resetRecord] = await db
+    .select()
+    .from(passwordResetTokensTable)
+    .where(
+      and(
+        eq(passwordResetTokensTable.token, token),
+        isNull(passwordResetTokensTable.usedAt),
+        gt(passwordResetTokensTable.expiresAt, new Date())
+      )
+    );
+
+  if (!resetRecord) {
+    res.status(400).json({ error: "Invalid token", message: "Reset link is invalid or has expired." });
+    return;
+  }
+
+  const passwordHash = await hashPassword(password);
+
+  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, resetRecord.userId));
+
+  await db
+    .update(passwordResetTokensTable)
+    .set({ usedAt: new Date() })
+    .where(eq(passwordResetTokensTable.id, resetRecord.id));
+
+  await db.delete(sessionsTable).where(eq(sessionsTable.userId, resetRecord.userId));
+
+  res.json({ success: true, message: "Password updated successfully. All existing sessions have been invalidated." });
 });
 
 export default router;

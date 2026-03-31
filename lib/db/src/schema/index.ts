@@ -5,3 +5,4 @@ export * from "./vcons";
 export * from "./rules";
 export * from "./activity";
 export * from "./unassigned_vcons";
+export * from "./password_reset_tokens";

@@ -11,6 +11,8 @@ import { Layout } from "@/components/layout";
 // Pages
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 import Dashboard from "@/pages/dashboard";
 import DevicesList from "@/pages/devices-list";
 import DeviceNew from "@/pages/device-new";
@@ -73,6 +75,8 @@ function Router() {
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
+        <Route path="/forgot-password" component={ForgotPassword} />
+        <Route path="/reset-password" component={ResetPassword} />
         
         {/* Protected Routes */}
         <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />

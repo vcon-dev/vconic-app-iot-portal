@@ -92,6 +92,11 @@ export default function Login() {
                 <Button type="submit" className="w-full font-mono font-bold" disabled={login.isPending}>
                   {login.isPending ? "AUTHENTICATING..." : "INITIATE SESSION"}
                 </Button>
+                <div className="text-center">
+                  <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary underline-offset-4 hover:underline transition-colors">
+                    Forgot password?
+                  </Link>
+                </div>
               </form>
             </Form>
             <div className="mt-6 text-center text-sm text-muted-foreground">
