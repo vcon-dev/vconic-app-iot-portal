@@ -1,22 +1,31 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: vConic Portal API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: User authentication
+  - name: devices
+    description: IoT device management
+  - name: vcons
+    description: vCon management
+  - name: rules
+    description: Repost routing rules
+  - name: ingest
+    description: Device vCon ingestion
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +33,444 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: loginUser
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logoutUser
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /devices:
+    get:
+      operationId: listDevices
+      tags: [devices]
+      summary: List all devices for current user
+      responses:
+        "200":
+          description: List of devices
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceList"
+    post:
+      operationId: createDevice
+      tags: [devices]
+      summary: Register a new IoT device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDeviceRequest"
+      responses:
+        "201":
+          description: Device created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+
+  /devices/{deviceId}:
+    get:
+      operationId: getDevice
+      tags: [devices]
+      summary: Get a device
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Device
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateDevice
+      tags: [devices]
+      summary: Update a device
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDeviceRequest"
+      responses:
+        "200":
+          description: Updated device
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+    delete:
+      operationId: deleteDevice
+      tags: [devices]
+      summary: Delete a device
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /devices/{deviceId}/token:
+    post:
+      operationId: regenerateDeviceToken
+      tags: [devices]
+      summary: Regenerate device API token
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: New token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceToken"
+
+  /devices/{deviceId}/vcons:
+    get:
+      operationId: listDeviceVcons
+      tags: [vcons]
+      summary: List vCons for a device
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: vCon list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VconList"
+
+  /ingest/{deviceToken}:
+    post:
+      operationId: ingestVcon
+      tags: [ingest]
+      summary: Ingest a vCon from an IoT device
+      parameters:
+        - name: deviceToken
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VconPayload"
+      responses:
+        "202":
+          description: vCon accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestResponse"
+        "401":
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /vcons:
+    get:
+      operationId: listVcons
+      tags: [vcons]
+      summary: List all vCons for current user
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: vCon list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VconList"
+
+  /vcons/{vconId}:
+    get:
+      operationId: getVcon
+      tags: [vcons]
+      summary: Get a vCon with full details
+      parameters:
+        - name: vconId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: vCon detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VconDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteVcon
+      tags: [vcons]
+      summary: Delete a vCon
+      parameters:
+        - name: vconId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /rules:
+    get:
+      operationId: listRules
+      tags: [rules]
+      summary: List repost routing rules
+      responses:
+        "200":
+          description: Rules list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleList"
+    post:
+      operationId: createRule
+      tags: [rules]
+      summary: Create a repost routing rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRuleRequest"
+      responses:
+        "201":
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rule"
+
+  /rules/{ruleId}:
+    get:
+      operationId: getRule
+      tags: [rules]
+      summary: Get a rule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rule"
+    put:
+      operationId: updateRule
+      tags: [rules]
+      summary: Update a rule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRuleRequest"
+      responses:
+        "200":
+          description: Updated rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Rule"
+    delete:
+      operationId: deleteRule
+      tags: [rules]
+      summary: Delete a rule
+      parameters:
+        - name: ruleId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [vcons]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/recent:
+    get:
+      operationId: getRecentActivity
+      tags: [vcons]
+      summary: Get recent vCon activity
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecentActivity"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +478,484 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required: [error]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required: [success]
+
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+      required: [email, password, name]
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+      required: [user, token]
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, email, name, createdAt]
+
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        deviceType:
+          type: string
+        macAddress:
+          type: string
+        description:
+          type: string
+        token:
+          type: string
+        ingestUrl:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, error]
+        vconCount:
+          type: integer
+        lastSeenAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, deviceType, token, ingestUrl, status, vconCount, createdAt]
+
+    DeviceList:
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Device"
+        total:
+          type: integer
+      required: [devices, total]
+
+    DeviceToken:
+      type: object
+      properties:
+        token:
+          type: string
+        ingestUrl:
+          type: string
+      required: [token, ingestUrl]
+
+    CreateDeviceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        deviceType:
+          type: string
+        macAddress:
+          type: string
+        description:
+          type: string
+      required: [name, deviceType]
+
+    UpdateDeviceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+
+    VconSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        uuid:
+          type: string
+        deviceId:
+          type: string
+        deviceName:
+          type: string
+        duration:
+          type: number
+        partyCount:
+          type: integer
+        hasAnalysis:
+          type: boolean
+        hasAttachments:
+          type: boolean
+        repostStatus:
+          type: string
+          enum: [pending, sent, failed, skipped]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, uuid, deviceId, createdAt, partyCount, hasAnalysis, hasAttachments, repostStatus]
+
+    VconList:
+      type: object
+      properties:
+        vcons:
+          type: array
+          items:
+            $ref: "#/components/schemas/VconSummary"
+        total:
+          type: integer
+      required: [vcons, total]
+
+    VconParty:
+      type: object
+      properties:
+        name:
+          type: string
+        tel:
+          type: string
+        mailto:
+          type: string
+        role:
+          type: string
+        meta:
+          type: object
+          additionalProperties: true
+      required: []
+
+    VconDialog:
+      type: object
+      properties:
+        type:
+          type: string
+        start:
+          type: string
+        duration:
+          type: number
+        parties:
+          type: array
+          items:
+            type: integer
+        mediatype:
+          type: string
+        encoding:
+          type: string
+        body:
+          type: string
+        url:
+          type: string
+      required: [type]
+
+    VconAnalysis:
+      type: object
+      properties:
+        type:
+          type: string
+        vendor:
+          type: string
+        product:
+          type: string
+        schema:
+          type: string
+        body:
+          type: string
+        encoding:
+          type: string
+        dialog:
+          type: integer
+      required: [type, vendor]
+
+    VconAttachment:
+      type: object
+      properties:
+        purpose:
+          type: string
+        party:
+          type: integer
+        dialog:
+          type: integer
+        body:
+          type: string
+        encoding:
+          type: string
+        mediatype:
+          type: string
+        start:
+          type: string
+      required: [purpose]
+
+    VconDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        uuid:
+          type: string
+        deviceId:
+          type: string
+        deviceName:
+          type: string
+        vconVersion:
+          type: string
+        subject:
+          type: string
+        parties:
+          type: array
+          items:
+            $ref: "#/components/schemas/VconParty"
+        dialog:
+          type: array
+          items:
+            $ref: "#/components/schemas/VconDialog"
+        analysis:
+          type: array
+          items:
+            $ref: "#/components/schemas/VconAnalysis"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/VconAttachment"
+        repostStatus:
+          type: string
+          enum: [pending, sent, failed, skipped]
+        repostAttempts:
+          type: integer
+        rawJson:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, uuid, deviceId, parties, dialog, analysis, attachments, repostStatus, repostAttempts, rawJson, createdAt]
+
+    VconPayload:
+      type: object
+      properties:
+        vcon:
+          type: string
+        uuid:
+          type: string
+        created_at:
+          type: string
+        parties:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        dialog:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        analysis:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        attachments:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        extensions:
+          type: array
+          items:
+            type: string
+      required: [uuid, created_at]
+
+    IngestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        uuid:
+          type: string
+        accepted:
+          type: boolean
+        message:
+          type: string
+      required: [id, uuid, accepted]
+
+    Rule:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        deviceId:
+          type: string
+        deviceName:
+          type: string
+        targetUrl:
+          type: string
+        method:
+          type: string
+          enum: [POST, PUT]
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        filterCondition:
+          type: string
+        enabled:
+          type: boolean
+        successCount:
+          type: integer
+        failureCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, targetUrl, method, enabled, successCount, failureCount, createdAt]
+
+    RuleList:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/Rule"
+        total:
+          type: integer
+      required: [rules, total]
+
+    CreateRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        deviceId:
+          type: string
+        targetUrl:
+          type: string
+        method:
+          type: string
+          enum: [POST, PUT]
+          default: POST
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        filterCondition:
+          type: string
+        enabled:
+          type: boolean
+          default: true
+      required: [name, targetUrl]
+
+    UpdateRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        targetUrl:
+          type: string
+        method:
+          type: string
+          enum: [POST, PUT]
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        filterCondition:
+          type: string
+        enabled:
+          type: boolean
+
+    DashboardStats:
+      type: object
+      properties:
+        totalDevices:
+          type: integer
+        activeDevices:
+          type: integer
+        totalVcons:
+          type: integer
+        vconsToday:
+          type: integer
+        totalDuration:
+          type: number
+        pendingReposts:
+          type: integer
+        failedReposts:
+          type: integer
+        activeRules:
+          type: integer
+      required: [totalDevices, activeDevices, totalVcons, vconsToday, totalDuration, pendingReposts, failedReposts, activeRules]
+
+    RecentActivityItem:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [vcon_received, device_registered, rule_triggered, repost_failed]
+        message:
+          type: string
+        deviceName:
+          type: string
+        vconId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, type, message, createdAt]
+
+    RecentActivity:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentActivityItem"
+      required: [items]
