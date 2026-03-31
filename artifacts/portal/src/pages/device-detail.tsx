@@ -124,7 +124,7 @@ export default function DeviceDetail({ params }: { params: { deviceId: string } 
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-muted-foreground">Gateway URL (recommended)</label>
-                <p className="text-xs text-muted-foreground">Single shared endpoint — routes by token param or MAC address in vCon</p>
+                <p className="text-xs text-muted-foreground">Single shared endpoint — routes by token param, vConic ID, or MAC address in vCon</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 block bg-black/50 p-3 rounded-md text-sm font-mono break-all text-primary border border-border">
                     {`https://vcon-gateway.replit.app/ingress?token=${device.token}`}
@@ -133,6 +133,19 @@ export default function DeviceDetail({ params }: { params: { deviceId: string } 
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
+                {(device as any).vconicId && (
+                  <div>
+                    <p className="text-xs text-muted-foreground mt-2">Alternative — use vConic ID directly:</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="flex-1 block bg-black/50 p-3 rounded-md text-sm font-mono break-all text-primary/70 border border-border">
+                        {`https://vcon-gateway.replit.app/ingress?token=${(device as any).vconicId}`}
+                      </code>
+                      <Button variant="outline" size="icon" onClick={() => copyToClipboard(`https://vcon-gateway.replit.app/ingress?token=${(device as any).vconicId}`, "Gateway URL (vConic ID)")}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -202,7 +215,11 @@ export default function DeviceDetail({ params }: { params: { deviceId: string } 
                 </div>
                 <div>
                   <dt className="text-muted-foreground font-medium mb-1">MAC Address</dt>
-                  <dd className="font-mono text-muted-foreground">{device.macAddress || "Not provided"}</dd>
+                  <dd className="font-mono text-muted-foreground">{device.macAddress || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground font-medium mb-1">vConic ID</dt>
+                  <dd className="font-mono text-muted-foreground">{(device as any).vconicId || "—"}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground font-medium mb-1">Total Payload Count</dt>

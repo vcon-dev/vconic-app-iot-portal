@@ -7,20 +7,33 @@ const router: IRouter = Router();
 
 const GATEWAY_DEFAULT_URL = "https://vcon-gateway.replit.app/ingress";
 
-function extractDeviceIdentifier(payload: Record<string, unknown>): string | null {
+interface DeviceIdentifiers {
+  mac: string | null;
+  vconicId: string | null;
+}
+
+function extractDeviceIdentifiers(payload: Record<string, unknown>): DeviceIdentifiers {
+  let mac: string | null = null;
+  let vconicId: string | null = null;
+
   const parties = Array.isArray(payload.parties) ? payload.parties : [];
   if (parties.length > 0) {
     const party = parties[0] as Record<string, unknown>;
     const meta = (party.meta ?? {}) as Record<string, unknown>;
-    if (meta.device_id && typeof meta.device_id === "string") return meta.device_id;
-    if (meta.mac_address && typeof meta.mac_address === "string") return meta.mac_address;
-    if (meta.deviceId && typeof meta.deviceId === "string") return meta.deviceId;
+    if (!mac && meta.device_id && typeof meta.device_id === "string") mac = meta.device_id;
+    if (!mac && meta.mac_address && typeof meta.mac_address === "string") mac = meta.mac_address;
+    if (!mac && meta.deviceId && typeof meta.deviceId === "string") mac = meta.deviceId;
+    if (!vconicId && meta.vconic_id && typeof meta.vconic_id === "string") vconicId = meta.vconic_id;
+    if (!vconicId && meta.vconicId && typeof meta.vconicId === "string") vconicId = meta.vconicId;
   }
+
   const meta = (payload.meta ?? {}) as Record<string, unknown>;
-  if (meta.device_id && typeof meta.device_id === "string") return meta.device_id;
-  if (meta.mac_address && typeof meta.mac_address === "string") return meta.mac_address;
-  if (payload.device_id && typeof payload.device_id === "string") return payload.device_id;
-  return null;
+  if (!mac && meta.device_id && typeof meta.device_id === "string") mac = meta.device_id;
+  if (!mac && meta.mac_address && typeof meta.mac_address === "string") mac = meta.mac_address;
+  if (!vconicId && meta.vconic_id && typeof meta.vconic_id === "string") vconicId = meta.vconic_id;
+  if (!mac && payload.device_id && typeof payload.device_id === "string") mac = payload.device_id as string;
+
+  return { mac, vconicId };
 }
 
 async function processRepostRules(
@@ -146,25 +159,39 @@ router.post("/gateway", async (req, res): Promise<void> => {
   const tokenParam = (req.query.token as string) || (req.headers["x-device-token"] as string);
 
   if (tokenParam) {
-    const [device] = await db.select().from(devicesTable).where(eq(devicesTable.token, tokenParam));
-    if (device) {
-      await routeToDevice(device, payload, res);
+    const [byToken] = await db.select().from(devicesTable).where(eq(devicesTable.token, tokenParam));
+    if (byToken) {
+      await routeToDevice(byToken, payload, res);
       return;
     }
-    logger.warn({ token: tokenParam }, "Gateway: token provided but no matching device found, falling back to MAC lookup");
+    const [byVconicId] = await db.select().from(devicesTable).where(eq(devicesTable.vconicId, tokenParam));
+    if (byVconicId) {
+      await routeToDevice(byVconicId, payload, res);
+      return;
+    }
+    logger.warn({ token: tokenParam }, "Gateway: token/vconic_id provided but no matching device found, trying vCon identifiers");
   }
 
-  const deviceIdentifier = extractDeviceIdentifier(payload);
+  const { mac, vconicId: embeddedVconicId } = extractDeviceIdentifiers(payload);
 
-  if (deviceIdentifier) {
-    const [device] = await db.select().from(devicesTable).where(eq(devicesTable.macAddress, deviceIdentifier));
-    if (device) {
-      await routeToDevice(device, payload, res);
+  if (mac) {
+    const [byMac] = await db.select().from(devicesTable).where(eq(devicesTable.macAddress, mac));
+    if (byMac) {
+      await routeToDevice(byMac, payload, res);
       return;
     }
   }
 
-  const identifier = deviceIdentifier || tokenParam || `unknown-${Date.now()}`;
+  if (embeddedVconicId) {
+    const [byEmbedded] = await db.select().from(devicesTable).where(eq(devicesTable.vconicId, embeddedVconicId));
+    if (byEmbedded) {
+      await routeToDevice(byEmbedded, payload, res);
+      return;
+    }
+  }
+
+  const identifier = tokenParam || embeddedVconicId || mac || `unknown-${Date.now()}`;
+  const reason = tokenParam ? "token_no_match" : (mac || embeddedVconicId) ? "mac_no_match" : "no_identifier";
 
   await db.insert(unassignedVconsTable).values({
     deviceIdentifier: identifier,
@@ -172,10 +199,10 @@ router.post("/gateway", async (req, res): Promise<void> => {
     sourceIp,
     vconUuid: (payload.uuid as string) || null,
     rawJson: JSON.stringify(payload),
-    reason: tokenParam ? "token_no_match" : deviceIdentifier ? "mac_no_match" : "no_identifier",
+    reason,
   });
 
-  logger.info({ identifier, hasToken: !!tokenParam, hasMac: !!deviceIdentifier }, "Gateway: vCon stored as unassigned");
+  logger.info({ identifier, hasToken: !!tokenParam, hasMac: !!mac, hasVconicId: !!embeddedVconicId }, "Gateway: vCon stored as unassigned");
 
   res.status(200).json({
     status: "unassigned",

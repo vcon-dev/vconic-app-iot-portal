@@ -18,6 +18,7 @@ const formSchema = z.object({
   name: z.string().min(2, "Name is required"),
   deviceType: z.string().min(1, "Device type is required"),
   macAddress: z.string().optional(),
+  vconicId: z.string().regex(/^(VC-[A-Za-z0-9]+)?$/, "Must be in VC-XXXXXX format or blank").optional(),
   description: z.string().optional(),
 });
 
@@ -28,7 +29,7 @@ export default function DeviceNew() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", deviceType: "m5stack-atoms3", macAddress: "", description: "" },
+    defaultValues: { name: "", deviceType: "m5stack-atoms3", macAddress: "", vconicId: "", description: "" },
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
@@ -110,8 +111,24 @@ export default function DeviceNew() {
                   <FormItem>
                     <FormLabel>MAC Address (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="00:1B:44:11:3A:B7" className="font-mono" {...field} />
+                      <Input placeholder="84:1F:E8:83:29:24" className="font-mono" {...field} />
                     </FormControl>
+                    <FormDescription>Used for automatic gateway routing if the device embeds its MAC in vCons.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="vconicId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>vConic ID (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="VC-832924" className="font-mono" {...field} />
+                    </FormControl>
+                    <FormDescription>The <code className="text-xs">VC-XXXXXX</code> identifier from the device firmware. Can be used as a gateway routing token instead of <code className="text-xs">dvt_xxx</code>.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

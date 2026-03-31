@@ -24,6 +24,7 @@ router.get("/devices", requireAuth, async (req: AuthRequest, res): Promise<void>
     name: d.name,
     deviceType: d.deviceType,
     macAddress: d.macAddress,
+    vconicId: d.vconicId,
     description: d.description,
     token: d.token,
     ingestUrl: getIngestUrl(d.token, req),
@@ -37,7 +38,7 @@ router.get("/devices", requireAuth, async (req: AuthRequest, res): Promise<void>
 });
 
 router.post("/devices", requireAuth, async (req: AuthRequest, res): Promise<void> => {
-  const { name, deviceType, macAddress, description } = req.body;
+  const { name, deviceType, macAddress, vconicId, description } = req.body;
 
   if (!name || !deviceType) {
     res.status(400).json({ error: "Missing required fields", message: "name and deviceType are required" });
@@ -48,7 +49,7 @@ router.post("/devices", requireAuth, async (req: AuthRequest, res): Promise<void
 
   const [device] = await db
     .insert(devicesTable)
-    .values({ userId: req.userId!, name, deviceType, macAddress, description, token })
+    .values({ userId: req.userId!, name, deviceType, macAddress, vconicId: vconicId || null, description, token })
     .returning();
 
   await db.insert(activityTable).values({
@@ -63,6 +64,7 @@ router.post("/devices", requireAuth, async (req: AuthRequest, res): Promise<void
     name: device.name,
     deviceType: device.deviceType,
     macAddress: device.macAddress,
+    vconicId: device.vconicId,
     description: device.description,
     token: device.token,
     ingestUrl: getIngestUrl(device.token, req),
@@ -91,6 +93,7 @@ router.get("/devices/:deviceId", requireAuth, async (req: AuthRequest, res): Pro
     name: device.name,
     deviceType: device.deviceType,
     macAddress: device.macAddress,
+    vconicId: device.vconicId,
     description: device.description,
     token: device.token,
     ingestUrl: getIngestUrl(device.token, req),
@@ -103,11 +106,17 @@ router.get("/devices/:deviceId", requireAuth, async (req: AuthRequest, res): Pro
 
 router.put("/devices/:deviceId", requireAuth, async (req: AuthRequest, res): Promise<void> => {
   const deviceId = Array.isArray(req.params.deviceId) ? req.params.deviceId[0] : req.params.deviceId;
-  const { name, description, status } = req.body;
+  const { name, description, status, macAddress, vconicId } = req.body;
 
   const [device] = await db
     .update(devicesTable)
-    .set({ ...(name && { name }), ...(description !== undefined && { description }), ...(status && { status }) })
+    .set({
+      ...(name && { name }),
+      ...(description !== undefined && { description }),
+      ...(status && { status }),
+      ...(macAddress !== undefined && { macAddress }),
+      ...(vconicId !== undefined && { vconicId: vconicId || null }),
+    })
     .where(and(eq(devicesTable.id, deviceId), eq(devicesTable.userId, req.userId!)))
     .returning();
 
@@ -121,6 +130,7 @@ router.put("/devices/:deviceId", requireAuth, async (req: AuthRequest, res): Pro
     name: device.name,
     deviceType: device.deviceType,
     macAddress: device.macAddress,
+    vconicId: device.vconicId,
     description: device.description,
     token: device.token,
     ingestUrl: getIngestUrl(device.token, req),

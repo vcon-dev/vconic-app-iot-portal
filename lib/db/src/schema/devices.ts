@@ -9,6 +9,7 @@ export const devicesTable = pgTable("devices", {
   name: text("name").notNull(),
   deviceType: text("device_type").notNull(),
   macAddress: text("mac_address"),
+  vconicId: text("vconic_id").unique(),
   description: text("description"),
   token: text("token").notNull().unique(),
   status: text("status").notNull().default("active"),
