@@ -1,6 +1,11 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 
+logger.info(
+  { resendKeySet: !!process.env.RESEND_API_KEY, fromEmail: process.env.RESEND_FROM_EMAIL },
+  "Startup env check"
+);
+
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {
