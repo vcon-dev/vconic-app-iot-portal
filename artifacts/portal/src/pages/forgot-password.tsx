@@ -37,8 +37,10 @@ export default function ForgotPassword() {
         toast.error(data.message || "Something went wrong");
         return;
       }
-      if (data.resetUrl) {
-        setResetUrl(data.resetUrl);
+      if (data.token) {
+        const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+        const url = `${window.location.origin}${base}/reset-password?token=${data.token}`;
+        setResetUrl(url);
       } else {
         toast.success("If that email is registered, a reset link has been sent.");
       }
@@ -104,9 +106,13 @@ export default function ForgotPassword() {
                 <p className="text-xs text-muted-foreground">
                   Copy and open this link to set a new password. It expires in <span className="text-foreground font-mono">1 hour</span>.
                 </p>
-                <div className="bg-black/50 rounded-md border border-border p-3 font-mono text-xs text-primary break-all">
+                <a
+                  href={resetUrl}
+                  target="_self"
+                  className="block bg-black/50 rounded-md border border-border p-3 font-mono text-xs text-primary break-all hover:border-primary/50 transition-colors"
+                >
                   {resetUrl}
-                </div>
+                </a>
                 <Button variant="outline" className="w-full gap-2" onClick={copyResetUrl}>
                   {copied ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
                   {copied ? "Copied!" : "Copy Reset Link"}

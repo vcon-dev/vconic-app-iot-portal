@@ -105,13 +105,7 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
 
   await db.insert(passwordResetTokensTable).values({ userId: user.id, token, expiresAt });
 
-  const proto = req.get("x-forwarded-proto") ?? req.protocol;
-  const host = req.get("host") ?? "localhost";
-  const basePortalUrl = `${proto}://${host}`;
-  const basePath = req.get("x-forwarded-prefix") ?? "";
-  const resetUrl = `${basePortalUrl}${basePath}/reset-password?token=${token}`;
-
-  res.json({ success: true, resetUrl, message: "Reset link generated." });
+  res.json({ success: true, token, message: "Reset link generated." });
 });
 
 router.post("/auth/reset-password", async (req, res): Promise<void> => {
