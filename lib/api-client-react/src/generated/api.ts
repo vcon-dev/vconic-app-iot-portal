@@ -17,7 +17,10 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AssignDeviceRequest,
+  AssignResponse,
   AuthResponse,
+  CreateAccountForDeviceRequest,
   CreateDeviceRequest,
   CreateRuleRequest,
   DashboardStats,
@@ -25,6 +28,8 @@ import type {
   DeviceList,
   DeviceToken,
   ErrorResponse,
+  GatewayIngestParams,
+  GatewayResponse,
   HealthStatus,
   IngestResponse,
   ListDeviceVconsParams,
@@ -35,6 +40,7 @@ import type {
   Rule,
   RuleList,
   SuccessResponse,
+  UnassignedList,
   UpdateDeviceRequest,
   UpdateRuleRequest,
   User,
@@ -1885,6 +1891,361 @@ export function useGetDashboardStats<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Gateway endpoint — routes vCon to correct account by token param or MAC address
+ */
+export const getGatewayIngestUrl = (params?: GatewayIngestParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/gateway?${stringifiedParams}`
+    : `/api/gateway`;
+};
+
+export const gatewayIngest = async (
+  vconPayload: VconPayload,
+  params?: GatewayIngestParams,
+  options?: RequestInit,
+): Promise<GatewayResponse> => {
+  return customFetch<GatewayResponse>(getGatewayIngestUrl(params), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(vconPayload),
+  });
+};
+
+export const getGatewayIngestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof gatewayIngest>>,
+    TError,
+    { data: BodyType<VconPayload>; params?: GatewayIngestParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof gatewayIngest>>,
+  TError,
+  { data: BodyType<VconPayload>; params?: GatewayIngestParams },
+  TContext
+> => {
+  const mutationKey = ["gatewayIngest"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof gatewayIngest>>,
+    { data: BodyType<VconPayload>; params?: GatewayIngestParams }
+  > = (props) => {
+    const { data, params } = props ?? {};
+
+    return gatewayIngest(data, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GatewayIngestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof gatewayIngest>>
+>;
+export type GatewayIngestMutationBody = BodyType<VconPayload>;
+export type GatewayIngestMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Gateway endpoint — routes vCon to correct account by token param or MAC address
+ */
+export const useGatewayIngest = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof gatewayIngest>>,
+    TError,
+    { data: BodyType<VconPayload>; params?: GatewayIngestParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof gatewayIngest>>,
+  TError,
+  { data: BodyType<VconPayload>; params?: GatewayIngestParams },
+  TContext
+> => {
+  return useMutation(getGatewayIngestMutationOptions(options));
+};
+
+/**
+ * @summary List unassigned device vCons grouped by device identifier
+ */
+export const getListUnassignedUrl = () => {
+  return `/api/admin/unassigned`;
+};
+
+export const listUnassigned = async (
+  options?: RequestInit,
+): Promise<UnassignedList> => {
+  return customFetch<UnassignedList>(getListUnassignedUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListUnassignedQueryKey = () => {
+  return [`/api/admin/unassigned`] as const;
+};
+
+export const getListUnassignedQueryOptions = <
+  TData = Awaited<ReturnType<typeof listUnassigned>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listUnassigned>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListUnassignedQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listUnassigned>>> = ({
+    signal,
+  }) => listUnassigned({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listUnassigned>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListUnassignedQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listUnassigned>>
+>;
+export type ListUnassignedQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List unassigned device vCons grouped by device identifier
+ */
+
+export function useListUnassigned<
+  TData = Awaited<ReturnType<typeof listUnassigned>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listUnassigned>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListUnassignedQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Assign unassigned vCons to an existing device
+ */
+export const getAssignUnassignedDeviceUrl = (deviceIdentifier: string) => {
+  return `/api/admin/unassigned/${deviceIdentifier}/assign`;
+};
+
+export const assignUnassignedDevice = async (
+  deviceIdentifier: string,
+  assignDeviceRequest: AssignDeviceRequest,
+  options?: RequestInit,
+): Promise<AssignResponse> => {
+  return customFetch<AssignResponse>(
+    getAssignUnassignedDeviceUrl(deviceIdentifier),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(assignDeviceRequest),
+    },
+  );
+};
+
+export const getAssignUnassignedDeviceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignUnassignedDevice>>,
+    TError,
+    { deviceIdentifier: string; data: BodyType<AssignDeviceRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof assignUnassignedDevice>>,
+  TError,
+  { deviceIdentifier: string; data: BodyType<AssignDeviceRequest> },
+  TContext
+> => {
+  const mutationKey = ["assignUnassignedDevice"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof assignUnassignedDevice>>,
+    { deviceIdentifier: string; data: BodyType<AssignDeviceRequest> }
+  > = (props) => {
+    const { deviceIdentifier, data } = props ?? {};
+
+    return assignUnassignedDevice(deviceIdentifier, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AssignUnassignedDeviceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof assignUnassignedDevice>>
+>;
+export type AssignUnassignedDeviceMutationBody = BodyType<AssignDeviceRequest>;
+export type AssignUnassignedDeviceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Assign unassigned vCons to an existing device
+ */
+export const useAssignUnassignedDevice = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof assignUnassignedDevice>>,
+    TError,
+    { deviceIdentifier: string; data: BodyType<AssignDeviceRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof assignUnassignedDevice>>,
+  TError,
+  { deviceIdentifier: string; data: BodyType<AssignDeviceRequest> },
+  TContext
+> => {
+  return useMutation(getAssignUnassignedDeviceMutationOptions(options));
+};
+
+/**
+ * @summary Create a new account and device for an unassigned device identifier
+ */
+export const getCreateAccountForDeviceUrl = (deviceIdentifier: string) => {
+  return `/api/admin/unassigned/${deviceIdentifier}/create-account`;
+};
+
+export const createAccountForDevice = async (
+  deviceIdentifier: string,
+  createAccountForDeviceRequest: CreateAccountForDeviceRequest,
+  options?: RequestInit,
+): Promise<AssignResponse> => {
+  return customFetch<AssignResponse>(
+    getCreateAccountForDeviceUrl(deviceIdentifier),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(createAccountForDeviceRequest),
+    },
+  );
+};
+
+export const getCreateAccountForDeviceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAccountForDevice>>,
+    TError,
+    { deviceIdentifier: string; data: BodyType<CreateAccountForDeviceRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAccountForDevice>>,
+  TError,
+  { deviceIdentifier: string; data: BodyType<CreateAccountForDeviceRequest> },
+  TContext
+> => {
+  const mutationKey = ["createAccountForDevice"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAccountForDevice>>,
+    { deviceIdentifier: string; data: BodyType<CreateAccountForDeviceRequest> }
+  > = (props) => {
+    const { deviceIdentifier, data } = props ?? {};
+
+    return createAccountForDevice(deviceIdentifier, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAccountForDeviceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAccountForDevice>>
+>;
+export type CreateAccountForDeviceMutationBody =
+  BodyType<CreateAccountForDeviceRequest>;
+export type CreateAccountForDeviceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new account and device for an unassigned device identifier
+ */
+export const useCreateAccountForDevice = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAccountForDevice>>,
+    TError,
+    { deviceIdentifier: string; data: BodyType<CreateAccountForDeviceRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAccountForDevice>>,
+  TError,
+  { deviceIdentifier: string; data: BodyType<CreateAccountForDeviceRequest> },
+  TContext
+> => {
+  return useMutation(getCreateAccountForDeviceMutationOptions(options));
+};
 
 /**
  * @summary Get recent vCon activity

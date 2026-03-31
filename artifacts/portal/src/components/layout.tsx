@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Server, Mic2, GitMerge, LogOut } from "lucide-react";
+import { LayoutDashboard, Server, Mic2, GitMerge, LogOut, AlertTriangle } from "lucide-react";
 import { Logo } from "./logo";
 import { useLogoutUser } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
@@ -11,6 +11,7 @@ const navItems = [
   { href: "/devices", label: "Devices", icon: Server },
   { href: "/vcons", label: "vCons", icon: Mic2 },
   { href: "/rules", label: "Routing Rules", icon: GitMerge },
+  { href: "/unassigned", label: "Unassigned Devices", icon: AlertTriangle },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {

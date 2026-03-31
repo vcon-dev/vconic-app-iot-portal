@@ -123,9 +123,22 @@ export default function DeviceDetail({ params }: { params: { deviceId: string } 
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Ingest Endpoint URL</label>
+                <label className="text-sm font-medium text-muted-foreground">Gateway URL (recommended)</label>
+                <p className="text-xs text-muted-foreground">Single shared endpoint — routes by token param or MAC address in vCon</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 block bg-black/50 p-3 rounded-md text-sm font-mono break-all text-primary border border-border">
+                    {`https://vcon-gateway.replit.app/ingress?token=${device.token}`}
+                  </code>
+                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(`https://vcon-gateway.replit.app/ingress?token=${device.token}`, "Gateway URL")}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Direct Ingest URL (per-device)</label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 block bg-black/50 p-3 rounded-md text-sm font-mono break-all text-primary/70 border border-border">
                     {device.ingestUrl}
                   </code>
                   <Button variant="outline" size="icon" onClick={() => copyToClipboard(device.ingestUrl, "Endpoint URL")}>

@@ -6,7 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./assignDeviceRequest";
+export * from "./assignResponse";
 export * from "./authResponse";
+export * from "./createAccountForDeviceRequest";
 export * from "./createDeviceRequest";
 export * from "./createRuleRequest";
 export * from "./createRuleRequestHeaders";
@@ -17,6 +20,9 @@ export * from "./deviceList";
 export * from "./deviceStatus";
 export * from "./deviceToken";
 export * from "./errorResponse";
+export * from "./gatewayIngestParams";
+export * from "./gatewayResponse";
+export * from "./gatewayResponseStatus";
 export * from "./healthStatus";
 export * from "./ingestResponse";
 export * from "./listDeviceVconsParams";
@@ -31,6 +37,9 @@ export * from "./ruleHeaders";
 export * from "./ruleList";
 export * from "./ruleMethod";
 export * from "./successResponse";
+export * from "./unassignedGroup";
+export * from "./unassignedGroupRecentVconsItem";
+export * from "./unassignedList";
 export * from "./updateDeviceRequest";
 export * from "./updateDeviceRequestStatus";
 export * from "./updateRuleRequest";

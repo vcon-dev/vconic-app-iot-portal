@@ -439,6 +439,102 @@ export const GetDashboardStatsResponse = zod.object({
 });
 
 /**
+ * @summary Gateway endpoint — routes vCon to correct account by token param or MAC address
+ */
+export const GatewayIngestQueryParams = zod.object({
+  token: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Device token (optional — falls back to vCon MAC address lookup)",
+    ),
+});
+
+export const GatewayIngestBody = zod.object({
+  vcon: zod.string().optional(),
+  uuid: zod.string(),
+  created_at: zod.string(),
+  parties: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  dialog: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  analysis: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  attachments: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  extensions: zod.array(zod.string()).optional(),
+});
+
+export const GatewayIngestResponse = zod.object({
+  status: zod.enum(["routed", "unassigned"]),
+  id: zod.string().optional(),
+  uuid: zod.string().optional(),
+  deviceId: zod.string().optional(),
+  deviceIdentifier: zod.string().optional(),
+  message: zod.string(),
+});
+
+/**
+ * @summary List unassigned device vCons grouped by device identifier
+ */
+export const ListUnassignedResponse = zod.object({
+  groups: zod.array(
+    zod.object({
+      deviceIdentifier: zod.string(),
+      vconCount: zod.number(),
+      firstSeen: zod.coerce.date(),
+      lastSeen: zod.coerce.date(),
+      samplePartyName: zod.string().optional(),
+      recentVcons: zod.array(
+        zod.object({
+          id: zod.string(),
+          uuid: zod.string(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Assign unassigned vCons to an existing device
+ */
+export const AssignUnassignedDeviceParams = zod.object({
+  deviceIdentifier: zod.coerce.string(),
+});
+
+export const AssignUnassignedDeviceBody = zod.object({
+  deviceId: zod
+    .string()
+    .describe("Existing device ID to assign these vCons to"),
+});
+
+export const AssignUnassignedDeviceResponse = zod.object({
+  success: zod.boolean(),
+  vconsMigrated: zod.number(),
+  deviceId: zod.string().optional(),
+  userId: zod.string().optional(),
+  message: zod.string(),
+});
+
+/**
+ * @summary Create a new account and device for an unassigned device identifier
+ */
+export const CreateAccountForDeviceParams = zod.object({
+  deviceIdentifier: zod.coerce.string(),
+});
+
+export const createAccountForDeviceBodyPasswordMin = 8;
+
+export const CreateAccountForDeviceBody = zod.object({
+  name: zod.string().describe("User display name"),
+  email: zod.string().email(),
+  password: zod.string().min(createAccountForDeviceBodyPasswordMin),
+  deviceName: zod.string().describe("Name for the new device"),
+  deviceType: zod
+    .string()
+    .optional()
+    .describe("Device type (e.g. m5stack-core2)"),
+});
+
+/**
  * @summary Get recent vCon activity
  */
 export const GetRecentActivityResponse = zod.object({

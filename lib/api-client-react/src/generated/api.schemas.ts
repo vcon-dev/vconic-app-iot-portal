@@ -320,6 +320,68 @@ export interface RecentActivity {
   items: RecentActivityItem[];
 }
 
+export type GatewayResponseStatus =
+  (typeof GatewayResponseStatus)[keyof typeof GatewayResponseStatus];
+
+export const GatewayResponseStatus = {
+  routed: "routed",
+  unassigned: "unassigned",
+} as const;
+
+export interface GatewayResponse {
+  status: GatewayResponseStatus;
+  id?: string;
+  uuid?: string;
+  deviceId?: string;
+  deviceIdentifier?: string;
+  message: string;
+}
+
+export type UnassignedGroupRecentVconsItem = {
+  id: string;
+  uuid: string;
+  createdAt: string;
+};
+
+export interface UnassignedGroup {
+  deviceIdentifier: string;
+  vconCount: number;
+  firstSeen: string;
+  lastSeen: string;
+  samplePartyName?: string;
+  recentVcons: UnassignedGroupRecentVconsItem[];
+}
+
+export interface UnassignedList {
+  groups: UnassignedGroup[];
+  total: number;
+}
+
+export interface AssignDeviceRequest {
+  /** Existing device ID to assign these vCons to */
+  deviceId: string;
+}
+
+export interface CreateAccountForDeviceRequest {
+  /** User display name */
+  name: string;
+  email: string;
+  /** @minLength 8 */
+  password: string;
+  /** Name for the new device */
+  deviceName: string;
+  /** Device type (e.g. m5stack-core2) */
+  deviceType?: string;
+}
+
+export interface AssignResponse {
+  success: boolean;
+  vconsMigrated: number;
+  deviceId?: string;
+  userId?: string;
+  message: string;
+}
+
 export type ListDeviceVconsParams = {
   limit?: number;
   offset?: number;
@@ -328,4 +390,11 @@ export type ListDeviceVconsParams = {
 export type ListVconsParams = {
   limit?: number;
   offset?: number;
+};
+
+export type GatewayIngestParams = {
+  /**
+   * Device token (optional — falls back to vCon MAC address lookup)
+   */
+  token?: string;
 };
