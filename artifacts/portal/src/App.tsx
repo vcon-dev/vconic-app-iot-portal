@@ -84,14 +84,14 @@ function Router() {
         
         <Route path="/devices" component={() => <ProtectedRoute component={DevicesList} />} />
         <Route path="/devices/new" component={() => <ProtectedRoute component={DeviceNew} />} />
-        <Route path="/devices/:deviceId" component={(params) => <ProtectedRoute component={DeviceDetail} params={params} />} />
+        <Route path="/devices/:deviceId" component={({ params }) => <ProtectedRoute component={DeviceDetail} params={params} />} />
         
         <Route path="/vcons" component={() => <ProtectedRoute component={VconsList} />} />
-        <Route path="/vcons/:vconId" component={(params) => <ProtectedRoute component={VconDetail} params={params} />} />
+        <Route path="/vcons/:vconId" component={({ params }) => <ProtectedRoute component={VconDetail} params={params} />} />
         
         <Route path="/rules" component={() => <ProtectedRoute component={RulesList} />} />
         <Route path="/rules/new" component={() => <ProtectedRoute component={RuleNew} />} />
-        <Route path="/rules/:ruleId" component={(params) => <ProtectedRoute component={RuleEdit} params={params} />} />
+        <Route path="/rules/:ruleId" component={({ params }) => <ProtectedRoute component={RuleEdit} params={params} />} />
 
         <Route path="/unassigned" component={() => <ProtectedRoute component={UnassignedDevices} />} />
 
