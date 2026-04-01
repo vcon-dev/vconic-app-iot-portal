@@ -98,11 +98,9 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
 
   if (!user) {
-    process.stdout.write(`FORGOT_PWD: no user found for email=${email}\n`);
     res.json({ success: true, message: "If that email is registered, a reset link will be provided." });
     return;
   }
-  process.stdout.write(`FORGOT_PWD: user found id=${user.id} email=${user.email}\n`);
 
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
@@ -141,10 +139,8 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
       `,
     });
     if (error) {
-      process.stdout.write(`RESEND_ERROR: ${JSON.stringify({ error, to: user.email, from: fromEmail })}\n`);
       logger.error({ error, to: user.email, from: fromEmail }, "Resend: failed to send password reset email");
     } else {
-      process.stdout.write(`RESEND_OK: emailId=${data?.id} to=${user.email} from=${fromEmail}\n`);
       logger.info({ emailId: data?.id, to: user.email, from: fromEmail }, "Resend: password reset email sent");
     }
   } else {
