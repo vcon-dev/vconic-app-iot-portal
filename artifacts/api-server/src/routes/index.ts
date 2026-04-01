@@ -9,6 +9,7 @@ import rulesRouter from "./rules";
 import dashboardRouter from "./dashboard";
 import adminRouter from "./admin";
 import settingsRouter from "./settings";
+import otaAdminRouter from "./ota-admin";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(rulesRouter);
 router.use(dashboardRouter);
 router.use(adminRouter);
 router.use(settingsRouter);
+router.use(otaAdminRouter);
 
 export default router;

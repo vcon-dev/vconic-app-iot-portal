@@ -1,0 +1,248 @@
+# OTA Firmware Update — Implementation Plan
+
+Two independent pieces of work. Each section is a self-contained brief
+for the agent or environment handling that side.
+
+---
+
+## Context
+
+The device is an M5Stack Core2 (ESP32, Arduino framework, M5Unified library).
+It already has WiFi, HTTPClient, and Preferences in use.
+The server is a Replit app that currently serves as a vCon ingress gateway.
+OTA uses the ESP32 built-in `Update` library with HTTP polling — no MQTT,
+no push, no external OTA service.
+
+---
+
+## Part 1 — Replit (Server Side)
+
+### Goal
+
+Serve two static files that the device polls on boot to decide whether to update.
+
+### Files to create
+
+**`/public/version.txt`**
+
+Plain text, one line, no trailing whitespace, no newline beyond the terminator.
+Format: semver string matching whatever is in the firmware `FIRMWARE_VERSION` define.
+
+```
+1.0.0
+```
+
+When you ship a new firmware build, this is the only file you edit to trigger
+an update on all devices.
+
+**`/public/firmware.bin`**
+
+The compiled Arduino binary. Produced by Arduino IDE via
+Sketch > Export Compiled Binary. The file name on disk must be exactly
+`firmware.bin`. Replace this file when shipping a new build.
+
+### Route / serving requirements
+
+Both files must be served with:
+
+- HTTP 200 on success
+- Correct `Content-Length` header (critical — the ESP32 Update library
+  needs this to allocate flash space)
+- No authentication, no redirect, no compression on `firmware.bin`
+- HTTPS is fine and preferred; the ESP32 HTTPClient handles it
+
+If Replit already serves a `/public` directory as static assets, no new
+route code is needed. Verify that `Content-Length` is present by curling:
+
+```
+curl -I https://your-replit.replit.app/version.txt
+curl -I https://your-replit.replit.app/firmware.bin
+```
+
+Both responses must show `content-length: <n>`.
+
+### Workflow for shipping a new firmware version
+
+1. Build firmware in Arduino IDE (Sketch > Export Compiled Binary).
+2. Replace `/public/firmware.bin` with the new `.bin` file.
+3. Edit `/public/version.txt` to match the new `FIRMWARE_VERSION` string
+   in `config.h`.
+4. Deploy / save. Devices will update on their next boot.
+
+### Nothing else changes on the Replit side.
+
+The existing `/ingress` endpoint and all other routes are untouched.
+
+---
+
+## Part 2 — Firmware / Claude Code (IoT Side)
+
+### Goal
+
+On every boot, after WiFi connects, check the remote version. If it differs
+from the version baked into the firmware, download and flash the new binary,
+then reboot.
+
+### Files to modify
+
+- `config.h` — add OTA constants
+- main `.ino` file — add OTA check call in `setup()`, after WiFi connects
+
+### Step 1 — Add constants to config.h
+
+Add these lines to `config.h` alongside the existing URL and WiFi defines:
+
+```cpp
+// Firmware version — must match /public/version.txt on the OTA server
+// when this build is the current release.
+#define FIRMWARE_VERSION  "1.0.0"
+
+// OTA endpoints — same host as DEFAULT_POST_URL
+#define OTA_VERSION_URL   "https://your-replit.replit.app/version.txt"
+#define OTA_FIRMWARE_URL  "https://your-replit.replit.app/firmware.bin"
+```
+
+### Step 2 — Add ota.h
+
+Create a new file `ota.h` in the sketch directory:
+
+```cpp
+#ifndef OTA_H
+#define OTA_H
+
+#include <HTTPClient.h>
+#include <Update.h>
+#include "config.h"
+
+// Call once in setup(), after WiFi is confirmed connected.
+// Blocks until check is complete. If update is applied, device reboots
+// and this function never returns.
+inline void checkForOTA(Print& log) {
+    HTTPClient http;
+
+    // --- 1. Fetch remote version ---
+    http.begin(OTA_VERSION_URL);
+    int code = http.GET();
+    if (code != 200) {
+        log.printf("[OTA] version check failed: HTTP %d\n", code);
+        http.end();
+        return;
+    }
+    String remote = http.getString();
+    remote.trim();
+    http.end();
+
+    log.printf("[OTA] local=%s remote=%s\n", FIRMWARE_VERSION, remote.c_str());
+
+    if (remote == FIRMWARE_VERSION) {
+        log.println("[OTA] firmware is current, skipping");
+        return;
+    }
+
+    // --- 2. Download and flash ---
+    log.println("[OTA] update available, downloading...");
+    http.begin(OTA_FIRMWARE_URL);
+    code = http.GET();
+    if (code != 200) {
+        log.printf("[OTA] firmware download failed: HTTP %d\n", code);
+        http.end();
+        return;
+    }
+
+    int contentLen = http.getSize();
+    if (contentLen <= 0) {
+        log.println("[OTA] server did not send Content-Length, aborting");
+        http.end();
+        return;
+    }
+
+    WiFiClient* stream = http.getStreamPtr();
+
+    if (!Update.begin(contentLen)) {
+        log.println("[OTA] Update.begin failed — check partition scheme");
+        http.end();
+        return;
+    }
+
+    size_t written = Update.writeStream(*stream);
+    log.printf("[OTA] wrote %u / %d bytes\n", written, contentLen);
+
+    if (!Update.end(true)) {
+        log.printf("[OTA] Update.end error: %d\n", Update.getError());
+        http.end();
+        return;
+    }
+
+    log.println("[OTA] success, rebooting...");
+    http.end();
+    delay(500);
+    ESP.restart();
+}
+
+#endif // OTA_H
+```
+
+### Step 3 — Call it from setup()
+
+In the main `.ino` file, include the header and add one call after the
+WiFi connection block:
+
+```cpp
+#include "ota.h"
+
+// ... inside setup(), after WiFi connects:
+checkForOTA(Serial);
+```
+
+Pass `Serial` so OTA progress appears in the serial monitor. If you have a
+display logger object you prefer, pass that instead — anything that implements
+`Print` works.
+
+### Step 4 — Expose version in the status serial command
+
+In the existing `status` serial command handler, add:
+
+```cpp
+Serial.printf("firmware : %s\n", FIRMWARE_VERSION);
+```
+
+This lets you confirm which version a deployed device is running without
+physical access.
+
+### Step 5 — Partition scheme
+
+In Arduino IDE, go to Tools > Partition Scheme and select one of:
+
+- "Default 4MB with spiffs" — works if the sketch is under ~1.3 MB
+- "Minimal SPIFFS (1.9MB APP with OTA)" — use this if the sketch is larger
+
+The sketch must not use the "No OTA" scheme or OTA flashing will silently fail.
+After changing the partition scheme, do a full erase and flash once via USB,
+then OTA takes over for subsequent updates.
+
+### What does not change
+
+- WiFi connection logic — untouched
+- vCon POST logic — untouched
+- Preferences / serial config commands — untouched, except adding the
+  version line to `status`
+- Audio recording logic — untouched
+
+---
+
+## Coordination between the two sides
+
+The only shared contract is the version string. It must match exactly between
+`FIRMWARE_VERSION` in `config.h` and the contents of `version.txt` on Replit.
+
+A mismatch in either direction causes a continuous update loop or no update at all:
+
+| config.h | version.txt | Result |
+|---|---|---|
+| `1.0.0` | `1.0.0` | No update (correct steady state) |
+| `1.0.0` | `1.0.1` | Device updates to whatever `.bin` is on server |
+| `1.0.1` | `1.0.0` | Device sees it is ahead, no update (safe) |
+
+The safe deployment order is: push new `firmware.bin` first, then update
+`version.txt`. This prevents a window where devices try to download a
+`.bin` that is not yet in place.

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Server, Mic2, GitMerge, LogOut, AlertTriangle, Sun, Moon, Monitor, Settings2 } from "lucide-react";
+import { LayoutDashboard, Server, Mic2, GitMerge, LogOut, AlertTriangle, Sun, Moon, Monitor, Settings2, Cpu } from "lucide-react";
 import { Logo } from "./logo";
 import { useLogoutUser } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
@@ -13,6 +13,7 @@ const navItems = [
   { href: "/vcons", label: "vCons", icon: Mic2 },
   { href: "/rules", label: "Routing Rules", icon: GitMerge },
   { href: "/unassigned", label: "Unassigned Devices", icon: AlertTriangle },
+  { href: "/ota",        label: "OTA Firmware",        icon: Cpu },
   { href: "/settings",   label: "Settings",           icon: Settings2 },
 ];
 
