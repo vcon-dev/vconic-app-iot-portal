@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -20,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, Server, Clock, ArrowRight, UserPlus, Loader2, Wifi, RefreshCw } from "lucide-react";
+import { AlertTriangle, Server, Clock, ArrowRight, UserPlus, Loader2, Wifi, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const GATEWAY_DEFAULT_URL = "https://vcon-gateway.replit.app/ingress";
@@ -68,6 +69,17 @@ async function assignDevice(deviceIdentifier: string, deviceId: string): Promise
   }
 }
 
+async function deleteUnassigned(deviceIdentifier: string): Promise<void> {
+  const res = await fetch(`/api/admin/unassigned/${encodeURIComponent(deviceIdentifier)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || "Deletion failed");
+  }
+}
+
 async function createAccountForDevice(
   deviceIdentifier: string,
   body: { name: string; email: string; password: string; deviceName: string; deviceType?: string }
@@ -84,6 +96,66 @@ async function createAccountForDevice(
     const err = await res.json();
     throw new Error(err.error || "Account creation failed");
   }
+}
+
+function DeleteConfirmDialog({
+  group,
+  open,
+  onClose,
+}: {
+  group: UnassignedGroup;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: () => deleteUnassigned(group.deviceIdentifier),
+    onSuccess: () => {
+      toast.success(`Removed ${group.vconCount} unassigned vCon(s)`);
+      qc.invalidateQueries({ queryKey: ["unassigned"] });
+      onClose();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-card border-border max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <Trash2 className="h-5 w-5" />
+            Remove Unassigned Device
+          </DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            This will permanently delete all queued vCons from this device. They cannot be recovered.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-2">
+          <div className="p-3 rounded-md bg-destructive/10 border border-destructive/30">
+            <p className="text-xs text-muted-foreground font-mono">Device Identifier</p>
+            <p className="text-sm font-mono text-destructive mt-0.5">{group.deviceIdentifier}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {group.vconCount} vCon(s) will be permanently deleted
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending}
+          >
+            {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+            Delete {group.vconCount} vCon(s)
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function AssignDialog({
@@ -246,6 +318,7 @@ export default function UnassignedDevices() {
   const qc = useQueryClient();
   const [assignGroup, setAssignGroup] = useState<UnassignedGroup | null>(null);
   const [createGroup, setCreateGroup] = useState<UnassignedGroup | null>(null);
+  const [deleteGroup, setDeleteGroup] = useState<UnassignedGroup | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["unassigned"],
@@ -369,6 +442,15 @@ export default function UnassignedDevices() {
                       <UserPlus className="h-3.5 w-3.5 mr-1.5" />
                       Create Account
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setDeleteGroup(group)}
+                      title="Remove this device and its vCons"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -426,6 +508,14 @@ export default function UnassignedDevices() {
           group={createGroup}
           open={!!createGroup}
           onClose={() => setCreateGroup(null)}
+        />
+      )}
+
+      {deleteGroup && (
+        <DeleteConfirmDialog
+          group={deleteGroup}
+          open={!!deleteGroup}
+          onClose={() => setDeleteGroup(null)}
         />
       )}
     </div>

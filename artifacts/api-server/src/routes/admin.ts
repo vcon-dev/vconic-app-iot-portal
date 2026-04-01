@@ -58,6 +58,14 @@ router.get("/admin/unassigned", requireAuth, async (req, res): Promise<void> => 
   res.json({ groups, total: rows.length });
 });
 
+router.delete("/admin/unassigned/:deviceIdentifier", requireAuth, async (_req, res): Promise<void> => {
+  const deviceIdentifier = decodeURIComponent(_req.params.deviceIdentifier);
+  await db
+    .delete(unassignedVconsTable)
+    .where(eq(unassignedVconsTable.deviceIdentifier, deviceIdentifier));
+  res.json({ success: true, message: `Removed all unassigned vCons for "${deviceIdentifier}"` });
+});
+
 router.post("/admin/unassigned/:deviceIdentifier/assign", requireAuth, async (req: AuthRequest, res): Promise<void> => {
   const { deviceIdentifier } = req.params;
   const { deviceId } = req.body;
