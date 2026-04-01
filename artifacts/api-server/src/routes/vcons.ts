@@ -35,18 +35,30 @@ router.get("/vcons", requireAuth, async (req: AuthRequest, res): Promise<void> =
     .from(vconsTable)
     .where(sql`${vconsTable.deviceId} = ANY(${sql.raw(`ARRAY['${deviceIds.join("','")}']::uuid[]`)})`);
 
-  const result = vcons.map((v) => ({
-    id: v.id,
-    uuid: v.vconUuid,
-    deviceId: v.deviceId,
-    deviceName: deviceMap.get(v.deviceId) ?? "Unknown",
-    duration: v.duration,
-    partyCount: v.partyCount,
-    hasAnalysis: v.hasAnalysis === "true",
-    hasAttachments: v.hasAttachments === "true",
-    repostStatus: v.repostStatus,
-    createdAt: v.createdAt,
-  }));
+  const result = vcons.map((v) => {
+    let tags: string[] = [];
+    try {
+      const raw = JSON.parse(v.rawJson);
+      if (Array.isArray(raw.tag)) {
+        tags = raw.tag.map((t: any) =>
+          typeof t === "string" ? t : (t.tag ?? t.value ?? JSON.stringify(t))
+        );
+      }
+    } catch {}
+    return {
+      id: v.id,
+      uuid: v.vconUuid,
+      deviceId: v.deviceId,
+      deviceName: deviceMap.get(v.deviceId) ?? "Unknown",
+      duration: v.duration,
+      partyCount: v.partyCount,
+      hasAnalysis: v.hasAnalysis === "true",
+      hasAttachments: v.hasAttachments === "true",
+      repostStatus: v.repostStatus,
+      tags,
+      createdAt: v.createdAt,
+    };
+  });
 
   res.json({ vcons: result, total });
 });
@@ -86,6 +98,27 @@ router.get("/vcons/:vconId", requireAuth, async (req: AuthRequest, res): Promise
     rawJson: vcon.rawJson,
     createdAt: vcon.createdAt,
   });
+});
+
+router.get("/vcons/:vconId/download", requireAuth, async (req: AuthRequest, res): Promise<void> => {
+  const vconId = Array.isArray(req.params.vconId) ? req.params.vconId[0] : req.params.vconId;
+
+  const [vcon] = await db.select().from(vconsTable).where(eq(vconsTable.id, vconId));
+  if (!vcon) { res.status(404).json({ error: "vCon not found" }); return; }
+
+  const [device] = await db
+    .select({ userId: devicesTable.userId })
+    .from(devicesTable)
+    .where(eq(devicesTable.id, vcon.deviceId));
+
+  if (!device || device.userId !== req.userId) {
+    res.status(404).json({ error: "vCon not found" }); return;
+  }
+
+  const filename = `vcon-${vcon.vconUuid}.json`;
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(vcon.rawJson);
 });
 
 router.delete("/vcons/:vconId", requireAuth, async (req: AuthRequest, res): Promise<void> => {

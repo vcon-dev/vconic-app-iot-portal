@@ -4,7 +4,7 @@ import { useGetVcon } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Users, MessageSquare, BrainCircuit, Paperclip, Code, Clock, Play, Pause, ExternalLink } from "lucide-react";
+import { ArrowLeft, Users, MessageSquare, BrainCircuit, Paperclip, Code, Clock, Play, Pause, ExternalLink, Download } from "lucide-react";
 
 function AudioPlayer({ src, mediatype }: { src: string; mediatype?: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -109,6 +109,23 @@ function AudioPlayer({ src, mediatype }: { src: string; mediatype?: string }) {
   );
 }
 
+async function downloadVcon(vconId: string, uuid: string) {
+  const token = localStorage.getItem("vconic_token");
+  const res = await fetch(`/api/vcons/${vconId}/download`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `vcon-${uuid}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export default function VconDetail({ params }: { params: { vconId: string } }) {
   const [, setLocation] = useLocation();
   const { data: vcon, isLoading } = useGetVcon(params.vconId);
@@ -123,11 +140,11 @@ export default function VconDetail({ params }: { params: { vconId: string } }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/vcons")} className="rounded-full">
+        <Button variant="ghost" size="icon" onClick={() => setLocation("/vcons")} className="rounded-full shrink-0">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold tracking-tight font-mono break-all">{vcon.uuid}</h1>
             <Badge variant="outline" className={`rounded-sm font-mono
                 ${vcon.repostStatus === 'sent' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
@@ -144,6 +161,15 @@ export default function VconDetail({ params }: { params: { vconId: string } }) {
             <span>V: {vcon.vconVersion || '0.0.1'}</span>
           </div>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-2 font-mono text-xs"
+          onClick={() => downloadVcon(vcon.id, vcon.uuid)}
+        >
+          <Download className="h-4 w-4" />
+          Download
+        </Button>
       </div>
 
       {vcon.subject && (
