@@ -1,9 +1,10 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Server, Mic2, GitMerge, LogOut, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Server, Mic2, GitMerge, LogOut, AlertTriangle, Sun, Moon, Monitor } from "lucide-react";
 import { Logo } from "./logo";
 import { useLogoutUser } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
+import { useTheme, type Theme } from "@/lib/theme";
 import { toast } from "sonner";
 
 const navItems = [
@@ -13,6 +14,36 @@ const navItems = [
   { href: "/rules", label: "Routing Rules", icon: GitMerge },
   { href: "/unassigned", label: "Unassigned Devices", icon: AlertTriangle },
 ];
+
+const themeOptions: { value: Theme; label: string; icon: React.ElementType }[] = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark",  label: "Dark",  icon: Moon },
+  { value: "system",label: "System",icon: Monitor },
+];
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <div className="flex items-center gap-1 p-1 rounded-md bg-secondary border border-border">
+      {themeOptions.map(({ value, label, icon: Icon }) => (
+        <button
+          key={value}
+          onClick={() => setTheme(value)}
+          title={label}
+          className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-xs font-medium transition-colors
+            ${theme === value
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+            }`}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          <span className="hidden lg:inline">{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
@@ -27,7 +58,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         toast.success("Logged out successfully");
       },
       onError: () => {
-        // Fallback clear token even if server fails
         setToken(null);
         setLocation("/login");
       }
@@ -46,15 +76,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
             const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
             const Icon = item.icon;
             return (
-              <Link key={item.href} href={item.href} className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors
+                  ${isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+              >
                 <Icon className="h-4 w-4" />
                 {item.label}
               </Link>
             );
           })}
         </nav>
-        <div className="p-4 border-t border-border">
-          <button 
+        <div className="p-4 border-t border-border space-y-2">
+          <ThemeToggle />
+          <button
             onClick={handleLogout}
             className="flex w-full items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
           >
@@ -68,17 +107,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         <div className="md:hidden flex items-center justify-between p-4 border-b border-border bg-card">
           <Logo />
-          <button onClick={handleLogout} className="p-2 text-muted-foreground hover:text-foreground">
-            <LogOut className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button onClick={handleLogout} className="p-2 text-muted-foreground hover:text-foreground">
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-        
-        {/* Mobile Nav (simple bottom bar or just rely on hamburger - let's do a simple quick links below header for now) */}
+
         <div className="md:hidden flex overflow-x-auto border-b border-border bg-card/50 p-2 gap-2">
           {navItems.map(item => {
             const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
             return (
-              <Link key={item.href} href={item.href} className={`px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap ${isActive ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md whitespace-nowrap
+                  ${isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground"
+                  }`}
+              >
                 {item.label}
               </Link>
             );

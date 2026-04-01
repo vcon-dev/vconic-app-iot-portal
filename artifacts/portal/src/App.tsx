@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AuthProvider, useAuth } from "@/lib/auth";
+import { ThemeProvider, useTheme } from "@/lib/theme";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { Layout } from "@/components/layout";
 
@@ -31,7 +32,7 @@ function ProtectedRoute({ component: Component, ...rest }: any) {
   const { isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!isAuthenticated) {
       setLocation("/login");
     }
@@ -50,7 +51,6 @@ function Router() {
   const [, setLocation] = useLocation();
   const { setToken } = useAuth();
 
-  // Create query client with global error handler for 401s
   const [queryClient] = React.useState(() => new QueryClient({
     queryCache: new QueryCache({
       onError: (error: any) => {
@@ -77,18 +77,17 @@ function Router() {
         <Route path="/register" component={Register} />
         <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/reset-password" component={ResetPassword} />
-        
-        {/* Protected Routes */}
+
         <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
         <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
-        
+
         <Route path="/devices" component={() => <ProtectedRoute component={DevicesList} />} />
         <Route path="/devices/new" component={() => <ProtectedRoute component={DeviceNew} />} />
         <Route path="/devices/:deviceId" component={({ params }) => <ProtectedRoute component={DeviceDetail} params={params} />} />
-        
+
         <Route path="/vcons" component={() => <ProtectedRoute component={VconsList} />} />
         <Route path="/vcons/:vconId" component={({ params }) => <ProtectedRoute component={VconDetail} params={params} />} />
-        
+
         <Route path="/rules" component={() => <ProtectedRoute component={RulesList} />} />
         <Route path="/rules/new" component={() => <ProtectedRoute component={RuleNew} />} />
         <Route path="/rules/:ruleId" component={({ params }) => <ProtectedRoute component={RuleEdit} params={params} />} />
@@ -101,21 +100,23 @@ function Router() {
   );
 }
 
-function App() {
-  // Ensure dark mode is applied
-  useEffect(() => {
-    document.documentElement.classList.add("dark");
-  }, []);
+function ThemedToaster() {
+  const { resolvedTheme } = useTheme();
+  return <Toaster theme={resolvedTheme} />;
+}
 
+function App() {
   return (
-    <TooltipProvider>
-      <AuthProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster theme="dark" />
-      </AuthProvider>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <AuthProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <ThemedToaster />
+        </AuthProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   );
 }
 
