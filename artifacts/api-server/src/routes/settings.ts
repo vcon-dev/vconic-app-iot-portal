@@ -22,17 +22,24 @@ router.get("/settings", requireAuth, async (req: AuthRequest, res): Promise<void
   const deviceIds = userDevices.map((d) => d.id);
 
   let vconCount = 0;
+  let totalSizeBytes = 0;
   if (deviceIds.length > 0) {
-    const [{ count }] = await db
-      .select({ count: sql<number>`count(*)::int` })
+    const idList = sql.raw(`ARRAY['${deviceIds.join("','")}']::uuid[]`);
+    const [row] = await db
+      .select({
+        count: sql<number>`count(*)::int`,
+        sizeBytes: sql<number>`coalesce(sum(octet_length(${vconsTable.rawJson})), 0)::bigint`,
+      })
       .from(vconsTable)
-      .where(sql`${vconsTable.deviceId} = ANY(${sql.raw(`ARRAY['${deviceIds.join("','")}']::uuid[]`)})`);
-    vconCount = count;
+      .where(sql`${vconsTable.deviceId} = ANY(${idList})`);
+    vconCount = row.count;
+    totalSizeBytes = Number(row.sizeBytes);
   }
 
   res.json({
     maxVconCount: settings.maxVconCount,
     currentVconCount: vconCount,
+    totalSizeBytes,
     updatedAt: settings.updatedAt,
   });
 });

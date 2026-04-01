@@ -12,7 +12,16 @@ function getToken() { return localStorage.getItem("vconic_token"); }
 interface UserSettings {
   maxVconCount: number;
   currentVconCount: number;
+  totalSizeBytes: number;
   updatedAt: string;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  const val = bytes / Math.pow(1024, i);
+  return `${val < 10 ? val.toFixed(2) : val < 100 ? val.toFixed(1) : Math.round(val)} ${units[i]}`;
 }
 
 async function fetchSettings(): Promise<UserSettings> {
@@ -86,12 +95,30 @@ export default function Settings() {
             </div>
           ) : (
             <>
+              {/* Stats row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-md bg-secondary/50 border border-border p-3 space-y-0.5">
+                  <p className="text-xs text-muted-foreground uppercase font-mono tracking-wider">vCon Count</p>
+                  <p className={`text-2xl font-bold font-mono ${isAtLimit ? "text-destructive" : isNearLimit ? "text-yellow-500" : "text-foreground"}`}>
+                    {data?.currentVconCount.toLocaleString()}
+                    <span className="text-sm font-normal text-muted-foreground ml-1">/ {data?.maxVconCount.toLocaleString()}</span>
+                  </p>
+                </div>
+                <div className="rounded-md bg-secondary/50 border border-border p-3 space-y-0.5">
+                  <p className="text-xs text-muted-foreground uppercase font-mono tracking-wider">Total Size</p>
+                  <p className="text-2xl font-bold font-mono text-foreground">
+                    {formatBytes(data?.totalSizeBytes ?? 0)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">raw JSON stored</p>
+                </div>
+              </div>
+
               {/* Usage bar */}
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Current usage</span>
-                  <span className={`font-mono font-semibold ${isAtLimit ? "text-destructive" : isNearLimit ? "text-yellow-500" : "text-foreground"}`}>
-                    {data?.currentVconCount.toLocaleString()} / {data?.maxVconCount.toLocaleString()} vCons
+                  <span className="text-muted-foreground">Count usage</span>
+                  <span className={`font-mono text-sm ${isAtLimit ? "text-destructive" : isNearLimit ? "text-yellow-500" : "text-muted-foreground"}`}>
+                    {usagePct.toFixed(0)}%
                   </span>
                 </div>
                 <div className="h-2 bg-secondary rounded-full overflow-hidden">
