@@ -155,8 +155,8 @@ export default function OtaPage() {
         </CardHeader>
         <CardContent className="pt-6 space-y-3">
           {[
-            { label: "OTA_VERSION_URL", path: "/version.txt" },
-            { label: "OTA_FIRMWARE_URL", path: "/firmware.bin" },
+            { label: "OTA_VERSION_URL", path: "/api/ota/version.txt" },
+            { label: "OTA_FIRMWARE_URL", path: "/api/ota/firmware.bin" },
           ].map(({ label, path }) => (
             <div key={label}>
               <p className="text-xs font-mono text-muted-foreground mb-1">{label}</p>

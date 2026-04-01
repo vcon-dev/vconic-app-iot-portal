@@ -352,8 +352,8 @@ const CATEGORIES: Category[] = [
           <div className="space-y-3">
             <p>Add these defines to your firmware's <code className="bg-secondary px-1 rounded text-xs">config.h</code>:</p>
             <pre className="bg-secondary/60 border border-border rounded p-3 text-xs font-mono overflow-x-auto">{`#define FIRMWARE_VERSION  "1.0.0"
-#define OTA_VERSION_URL   "https://your-app.replit.app/version.txt"
-#define OTA_FIRMWARE_URL  "https://your-app.replit.app/firmware.bin"`}</pre>
+#define OTA_VERSION_URL   "https://your-app.replit.app/api/ota/version.txt"
+#define OTA_FIRMWARE_URL  "https://your-app.replit.app/api/ota/firmware.bin"`}</pre>
             <p className="text-sm text-muted-foreground">The exact URLs are shown in the <strong>OTA Firmware → Device Endpoints</strong> card with copy buttons.</p>
           </div>
         ),
