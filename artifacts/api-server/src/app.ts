@@ -29,6 +29,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use((req, _res, next) => {
+  if (req.path === "/ingress") {
+    req.url = "/api/gateway" + req.url.slice("/ingress".length);
+  }
+  next();
+});
+
 app.use("/api", router);
 
 export default app;
