@@ -1,8 +1,78 @@
 import { Router, type IRouter } from "express";
-import { db, devicesTable, vconsTable, activityTable } from "@workspace/db";
-import { eq, and, desc, count, sql } from "drizzle-orm";
+import { db, devicesTable, vconsTable, activityTable, unassignedVconsTable } from "@workspace/db";
+import { eq, and, desc, count, sql, or } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
 import { generateDeviceToken } from "../lib/auth";
+import { logger } from "../lib/logger";
+
+async function claimUnassignedVcons(device: typeof devicesTable.$inferSelect): Promise<number> {
+  const identifiers: string[] = [];
+  if (device.vconicId) identifiers.push(device.vconicId);
+  if (device.macAddress) identifiers.push(device.macAddress);
+  if (identifiers.length === 0) return 0;
+
+  const conditions = identifiers.map((id) => eq(unassignedVconsTable.deviceIdentifier, id));
+  const unassigned = await db
+    .select()
+    .from(unassignedVconsTable)
+    .where(conditions.length === 1 ? conditions[0] : or(...conditions));
+
+  if (unassigned.length === 0) return 0;
+
+  let migrated = 0;
+  for (const row of unassigned) {
+    try {
+      const payload = JSON.parse(row.rawJson);
+      const parties = Array.isArray(payload.parties) ? payload.parties : [];
+      const dialog = Array.isArray(payload.dialog) ? payload.dialog : [];
+      const analysis = Array.isArray(payload.analysis) ? payload.analysis : [];
+      const attachments = Array.isArray(payload.attachments) ? payload.attachments : [];
+      const extensions = Array.isArray(payload.extensions) ? payload.extensions : [];
+      const totalDuration = dialog.reduce((sum: number, d: { duration?: number }) => sum + (d.duration ?? 0), 0);
+
+      await db.insert(vconsTable).values({
+        deviceId: device.id,
+        vconUuid: row.vconUuid || crypto.randomUUID(),
+        vconVersion: payload.vcon ?? "0.4.0",
+        subject: payload.subject,
+        parties,
+        dialog,
+        analysis,
+        attachments,
+        extensions,
+        rawJson: row.rawJson,
+        duration: totalDuration || null,
+        partyCount: parties.length,
+        hasAnalysis: analysis.length > 0 ? "true" : "false",
+        hasAttachments: attachments.length > 0 ? "true" : "false",
+        repostStatus: "pending",
+      });
+
+      await db.delete(unassignedVconsTable).where(eq(unassignedVconsTable.id, row.id));
+      migrated++;
+    } catch (err) {
+      logger.error({ err, rowId: row.id }, "Failed to auto-claim unassigned vCon during device registration");
+    }
+  }
+
+  if (migrated > 0) {
+    await db
+      .update(devicesTable)
+      .set({ vconCount: sql`${devicesTable.vconCount} + ${migrated}`, lastSeenAt: new Date() })
+      .where(eq(devicesTable.id, device.id));
+
+    await db.insert(activityTable).values({
+      userId: device.userId,
+      type: "vcon_received",
+      message: `Auto-claimed ${migrated} queued vCon(s) for device "${device.name}"`,
+      deviceName: device.name,
+    });
+
+    logger.info({ deviceId: device.id, deviceName: device.name, migrated }, "Auto-claimed unassigned vCons on device registration");
+  }
+
+  return migrated;
+}
 
 const router: IRouter = Router();
 
@@ -59,6 +129,9 @@ router.post("/devices", requireAuth, async (req: AuthRequest, res): Promise<void
     deviceName: name,
   });
 
+  // Auto-claim any unassigned vCons that match this device's vconicId or MAC address
+  const vconsClaimed = await claimUnassignedVcons(device);
+
   res.status(201).json({
     id: device.id,
     name: device.name,
@@ -72,6 +145,7 @@ router.post("/devices", requireAuth, async (req: AuthRequest, res): Promise<void
     vconCount: device.vconCount,
     lastSeenAt: device.lastSeenAt,
     createdAt: device.createdAt,
+    vconsClaimed,
   });
 });
 
@@ -125,6 +199,9 @@ router.put("/devices/:deviceId", requireAuth, async (req: AuthRequest, res): Pro
     return;
   }
 
+  // Auto-claim any newly-matching unassigned vCons after the update
+  const vconsClaimed = await claimUnassignedVcons(device);
+
   res.json({
     id: device.id,
     name: device.name,
@@ -138,6 +215,7 @@ router.put("/devices/:deviceId", requireAuth, async (req: AuthRequest, res): Pro
     vconCount: device.vconCount,
     lastSeenAt: device.lastSeenAt,
     createdAt: device.createdAt,
+    vconsClaimed,
   });
 });
 
