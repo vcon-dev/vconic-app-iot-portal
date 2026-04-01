@@ -26,13 +26,20 @@ function tagColor(tag: string) {
 
 function getToken() { return localStorage.getItem("vconic_token"); }
 
-function downloadVcon(vconId: string, vconUuid: string) {
+async function downloadVcon(vconId: string, vconUuid: string) {
+  const res = await fetch(`/api/vcons/${vconId}/download`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!res.ok) return;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = `/api/vcons/${vconId}/download?token=${encodeURIComponent(getToken() || "")}`;
+  a.href = url;
   a.download = `vcon-${vconUuid}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 async function fetchVcons(limit: number, offset: number) {
