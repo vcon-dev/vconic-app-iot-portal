@@ -6,3 +6,9 @@ id = "9kUq26n2sic9BLpA8Ipr2"
 uri = "file://docs/device-integration.md"
 type = "text"
 title = "vConic Edge Device Integration Guide"
+
+[[outputs]]
+id = "E8rXt8WQu7EcCvg2oqd3_"
+uri = "file://README.md"
+type = "text"
+title = "vConic Portal — README"
