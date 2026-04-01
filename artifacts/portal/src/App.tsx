@@ -24,6 +24,7 @@ import RulesList from "@/pages/rules-list";
 import RuleNew from "@/pages/rule-new";
 import RuleEdit from "@/pages/rule-edit";
 import UnassignedDevices from "@/pages/unassigned-devices";
+import Settings from "@/pages/settings";
 
 // Setup token getter for custom-fetch
 setAuthTokenGetter(() => localStorage.getItem("vconic_token"));
@@ -93,6 +94,7 @@ function Router() {
         <Route path="/rules/:ruleId" component={({ params }) => <ProtectedRoute component={RuleEdit} params={params} />} />
 
         <Route path="/unassigned" component={() => <ProtectedRoute component={UnassignedDevices} />} />
+        <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
 
         <Route component={NotFound} />
       </Switch>

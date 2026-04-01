@@ -8,6 +8,7 @@ import gatewayRouter from "./gateway";
 import rulesRouter from "./rules";
 import dashboardRouter from "./dashboard";
 import adminRouter from "./admin";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(gatewayRouter);
 router.use(rulesRouter);
 router.use(dashboardRouter);
 router.use(adminRouter);
+router.use(settingsRouter);
 
 export default router;

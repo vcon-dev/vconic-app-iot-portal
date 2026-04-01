@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, devicesTable, vconsTable, rulesTable, activityTable, unassignedVconsTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { db, devicesTable, vconsTable, rulesTable, activityTable, unassignedVconsTable, settingsTable } from "@workspace/db";
+import { eq, and, sql, asc } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -34,6 +34,32 @@ function extractDeviceIdentifiers(payload: Record<string, unknown>): DeviceIdent
   if (!mac && payload.device_id && typeof payload.device_id === "string") mac = payload.device_id as string;
 
   return { mac, vconicId };
+}
+
+async function enforceVconLimit(userId: string): Promise<void> {
+  const [settings] = await db.select().from(settingsTable).where(eq(settingsTable.userId, userId));
+  const maxCount = settings?.maxVconCount ?? 1000;
+
+  const userDevices = await db.select({ id: devicesTable.id }).from(devicesTable).where(eq(devicesTable.userId, userId));
+  const deviceIds = userDevices.map((d) => d.id);
+  if (deviceIds.length === 0) return;
+
+  const idList = `ARRAY['${deviceIds.join("','")}']::uuid[]`;
+  const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(vconsTable).where(sql`${vconsTable.deviceId} = ANY(${sql.raw(idList)})`);
+  const excess = count - maxCount;
+  if (excess <= 0) return;
+
+  const oldest = await db
+    .select({ id: vconsTable.id })
+    .from(vconsTable)
+    .where(sql`${vconsTable.deviceId} = ANY(${sql.raw(idList)})`)
+    .orderBy(asc(vconsTable.createdAt))
+    .limit(excess);
+
+  for (const row of oldest) {
+    await db.delete(vconsTable).where(eq(vconsTable.id, row.id));
+  }
+  logger.info({ userId, deleted: oldest.length, maxCount }, "Enforced vCon storage limit");
 }
 
 async function processRepostRules(
@@ -132,6 +158,10 @@ async function routeToDevice(device: typeof devicesTable.$inferSelect, payload: 
 
   processRepostRules(vcon.id, device.id, device.userId, payload).catch((err) => {
     logger.error({ err, vconId: vcon.id }, "Error processing repost rules");
+  });
+
+  enforceVconLimit(device.userId).catch((err) => {
+    logger.error({ err, userId: device.userId }, "Error enforcing vCon limit");
   });
 
   res.status(202).json({

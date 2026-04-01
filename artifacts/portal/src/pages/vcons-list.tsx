@@ -1,19 +1,39 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "wouter";
-import { useListVcons } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileJson, Mic2, Paperclip, BrainCircuit } from "lucide-react";
+import { FileJson, Paperclip, BrainCircuit, ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAGE_SIZE = 25;
+
+function getToken() { return localStorage.getItem("vconic_token"); }
+
+async function fetchVcons(limit: number, offset: number) {
+  const res = await fetch(`/api/vcons?limit=${limit}&offset=${offset}`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+  if (!res.ok) throw new Error("Failed to load vCons");
+  return res.json() as Promise<{ vcons: any[]; total: number }>;
+}
 
 export default function VconsList() {
-  const { data, isLoading } = useListVcons({ query: { queryKey: ["vcons"] } });
+  const [page, setPage] = useState(0);
+  const offset = page * PAGE_SIZE;
 
-  if (isLoading) {
-    return <div className="text-primary font-mono animate-pulse">READING VCON ARCHIVE...</div>;
-  }
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["vcons", page],
+    queryFn: () => fetchVcons(PAGE_SIZE, offset),
+    placeholderData: (prev) => prev,
+  });
 
   const vcons = data?.vcons || [];
+  const total = data?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const startItem = total === 0 ? 0 : offset + 1;
+  const endItem = Math.min(offset + PAGE_SIZE, total);
 
   return (
     <div className="space-y-6">
@@ -22,6 +42,11 @@ export default function VconsList() {
           <h1 className="text-3xl font-bold tracking-tight">vCon Archive</h1>
           <p className="text-muted-foreground mt-1">Immutable conversation records</p>
         </div>
+        {total > 0 && (
+          <span className="text-sm text-muted-foreground font-mono">
+            {total.toLocaleString()} total
+          </span>
+        )}
       </div>
 
       <Card className="bg-card border-border/50">
@@ -39,54 +64,106 @@ export default function VconsList() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {vcons.map((vcon) => (
-                <TableRow key={vcon.id} className="border-border hover:bg-secondary/20 transition-colors group">
-                  <TableCell className="font-mono text-xs">
-                    <Link href={`/vcons/${vcon.id}`} className="flex items-center gap-2 text-primary hover:underline">
-                      <FileJson className="h-3 w-3" />
-                      {vcon.uuid.split('-')[0]}...
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    <Link href={`/devices/${vcon.deviceId}`} className="hover:text-primary transition-colors">
-                      {vcon.deviceName || "Unknown"}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">{vcon.partyCount}</TableCell>
-                  <TableCell className="font-mono text-sm">{vcon.duration ? `${Math.round(vcon.duration)}s` : '-'}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {vcon.hasAnalysis && <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 rounded-sm px-1.5 py-0 title-xs"><BrainCircuit className="w-3 h-3 mr-1"/>Analysis</Badge>}
-                      {vcon.hasAttachments && <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/20 rounded-sm px-1.5 py-0 title-xs"><Paperclip className="w-3 h-3 mr-1"/>Att</Badge>}
-                      {!vcon.hasAnalysis && !vcon.hasAttachments && <span className="text-muted-foreground text-xs">-</span>}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`rounded-sm px-1.5 py-0 text-xs font-mono
-                      ${vcon.repostStatus === 'sent' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
-                        vcon.repostStatus === 'failed' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 
-                        vcon.repostStatus === 'pending' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : 
-                        'bg-gray-500/10 text-gray-400 border-gray-500/20'}
-                    `}>
-                      {vcon.repostStatus.toUpperCase()}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right text-xs text-muted-foreground font-mono">
-                    {new Date(vcon.createdAt).toLocaleString()}
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-32 text-center text-primary font-mono animate-pulse">
+                    READING VCON ARCHIVE...
                   </TableCell>
                 </TableRow>
-              ))}
-              {vcons.length === 0 && (
+              ) : vcons.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-32 text-center text-muted-foreground font-mono">
                     NO VCONS DETECTED IN ARCHIVE
                   </TableCell>
                 </TableRow>
+              ) : (
+                vcons.map((vcon) => (
+                  <TableRow
+                    key={vcon.id}
+                    className={`border-border hover:bg-secondary/20 transition-colors group ${isFetching ? "opacity-60" : ""}`}
+                  >
+                    <TableCell className="font-mono text-xs">
+                      <Link href={`/vcons/${vcon.id}`} className="flex items-center gap-2 text-primary hover:underline">
+                        <FileJson className="h-3 w-3" />
+                        {vcon.uuid.split('-')[0]}...
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <Link href={`/devices/${vcon.deviceId}`} className="hover:text-primary transition-colors">
+                        {vcon.deviceName || "Unknown"}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">{vcon.partyCount}</TableCell>
+                    <TableCell className="font-mono text-sm">{vcon.duration ? `${Math.round(vcon.duration)}s` : '-'}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {vcon.hasAnalysis && (
+                          <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 rounded-sm px-1.5 py-0 text-xs">
+                            <BrainCircuit className="w-3 h-3 mr-1" />Analysis
+                          </Badge>
+                        )}
+                        {vcon.hasAttachments && (
+                          <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/20 rounded-sm px-1.5 py-0 text-xs">
+                            <Paperclip className="w-3 h-3 mr-1" />Att
+                          </Badge>
+                        )}
+                        {!vcon.hasAnalysis && !vcon.hasAttachments && (
+                          <span className="text-muted-foreground text-xs">-</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`rounded-sm px-1.5 py-0 text-xs font-mono
+                        ${vcon.repostStatus === 'sent'    ? 'bg-green-500/10  text-green-400  border-green-500/20'  :
+                          vcon.repostStatus === 'failed'  ? 'bg-red-500/10    text-red-400    border-red-500/20'    :
+                          vcon.repostStatus === 'pending' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                                                            'bg-gray-500/10   text-gray-400   border-gray-500/20'}
+                      `}>
+                        {vcon.repostStatus.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-xs text-muted-foreground font-mono">
+                      {new Date(vcon.createdAt).toLocaleString()}
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {total > PAGE_SIZE && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground font-mono">
+            Showing {startItem}–{endItem} of {total.toLocaleString()}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0 || isFetching}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground font-mono px-2">
+              {page + 1} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1 || isFetching}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
