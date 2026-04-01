@@ -195,8 +195,11 @@ export default function VconDetail({ params }: { params: { vconId: string } }) {
           </CardHeader>
           <CardContent className="p-0 flex-1 overflow-auto">
             {vcon.dialog?.map((dlg, idx) => {
+              const toStdBase64 = (s: string) =>
+                s.replace(/-/g, '+').replace(/_/g, '/').replace(/\s/g, '');
+
               const audioSrc = dlg.type === 'recording'
-                ? dlg.url || (dlg.body ? `data:${dlg.mediatype || 'audio/wav'};base64,${dlg.body}` : null)
+                ? dlg.url || (dlg.body ? `data:${dlg.mediatype || 'audio/wav'};base64,${toStdBase64(dlg.body)}` : null)
                 : null;
 
               return (
