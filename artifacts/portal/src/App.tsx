@@ -26,6 +26,7 @@ import RuleEdit from "@/pages/rule-edit";
 import UnassignedDevices from "@/pages/unassigned-devices";
 import Settings from "@/pages/settings";
 import OtaPage from "@/pages/ota";
+import Help from "@/pages/help";
 
 // Setup token getter for custom-fetch
 setAuthTokenGetter(() => localStorage.getItem("vconic_token"));
@@ -97,6 +98,7 @@ function Router() {
         <Route path="/unassigned" component={() => <ProtectedRoute component={UnassignedDevices} />} />
         <Route path="/ota" component={() => <ProtectedRoute component={OtaPage} />} />
         <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
+        <Route path="/help" component={() => <ProtectedRoute component={Help} />} />
 
         <Route component={NotFound} />
       </Switch>
