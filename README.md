@@ -407,4 +407,4 @@ node --enable-source-maps artifacts/api-server/dist/index.mjs
 
 The portal's Vite build output (`artifacts/portal/dist/public`) is served as static files by the Replit proxy directly, without going through the Express server.
 
-> **OTA file persistence:** `artifacts/api-server/ota-files/` is written at runtime. On autoscale deployments this is ephemeral — re-upload firmware after a cold start, or extend the API to store firmware in the database or object storage for true persistence.
+> **OTA file persistence:** Firmware binaries and version strings are stored in the `ota_files` PostgreSQL table (base64-encoded). They survive container restarts and autoscale cold starts without any re-upload.

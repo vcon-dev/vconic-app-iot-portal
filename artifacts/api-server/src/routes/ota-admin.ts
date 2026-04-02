@@ -1,25 +1,38 @@
 import { Router, type IRouter } from "express";
 import { requireAuth, type AuthRequest } from "../middlewares/auth";
-import path from "node:path";
-import fs from "node:fs/promises";
+import { db, otaFilesTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-const otaDir = () => path.resolve(process.cwd(), "ota-files");
-const versionPath = () => path.join(otaDir(), "version.txt");
-const firmwarePath = () => path.join(otaDir(), "firmware.bin");
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+async function getOtaRow(key: string) {
+  const [row] = await db.select().from(otaFilesTable).where(eq(otaFilesTable.key, key));
+  return row ?? null;
+}
+
+async function upsertOtaRow(key: string, content: string, size: number) {
+  await db
+    .insert(otaFilesTable)
+    .values({ key, content, size })
+    .onConflictDoUpdate({
+      target: otaFilesTable.key,
+      set: { content, size, updatedAt: new Date() },
+    });
+}
 
 // ─── Public device endpoints (no auth) ───────────────────────────────────────
-// Devices poll these on boot. Must return correct Content-Length (no chunked
-// encoding) so the ESP32 Update library can allocate flash space.
+// Devices poll these on boot. Explicit Content-Length (no chunked encoding)
+// so the ESP32 Update library can allocate flash space correctly.
 
 router.get("/ota/version.txt", async (_req, res): Promise<void> => {
-  const version = await fs.readFile(versionPath(), "utf8").catch(() => null);
-  if (!version) {
+  const row = await getOtaRow("version");
+  if (!row) {
     res.status(404).type("text/plain").send("not found");
     return;
   }
-  const body = version.trim();
+  const body = row.content.trim();
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Length", Buffer.byteLength(body, "utf8"));
@@ -27,28 +40,30 @@ router.get("/ota/version.txt", async (_req, res): Promise<void> => {
 });
 
 router.get("/ota/firmware.bin", async (_req, res): Promise<void> => {
-  const firmwareStat = await fs.stat(firmwarePath()).catch(() => null);
-  if (!firmwareStat) {
+  const row = await getOtaRow("firmware");
+  if (!row) {
     res.status(404).type("text/plain").send("no firmware uploaded");
     return;
   }
+  const buf = Buffer.from(row.content, "base64");
   res.setHeader("Content-Type", "application/octet-stream");
-  res.setHeader("Content-Length", firmwareStat.size);
+  res.setHeader("Content-Length", buf.length);
   res.setHeader("Cache-Control", "no-store");
-  const buf = await fs.readFile(firmwarePath());
   res.status(200).send(buf);
 });
 
 // ─── Admin endpoints (auth required) ─────────────────────────────────────────
 
 router.get("/ota/status", requireAuth, async (_req: AuthRequest, res): Promise<void> => {
-  const version = await fs.readFile(versionPath(), "utf8").then((v) => v.trim()).catch(() => null);
-  const firmwareStat = await fs.stat(firmwarePath()).catch(() => null);
+  const [versionRow, firmwareRow] = await Promise.all([
+    getOtaRow("version"),
+    getOtaRow("firmware"),
+  ]);
   res.json({
-    version,
-    firmwarePresent: !!firmwareStat,
-    firmwareSize: firmwareStat?.size ?? null,
-    firmwareModified: firmwareStat?.mtime ?? null,
+    version: versionRow?.content?.trim() ?? null,
+    firmwarePresent: !!firmwareRow,
+    firmwareSize: firmwareRow?.size ?? null,
+    firmwareModified: firmwareRow?.updatedAt ?? null,
   });
 });
 
@@ -63,8 +78,7 @@ router.put("/ota/version", requireAuth, async (req: AuthRequest, res): Promise<v
     res.status(400).json({ error: "version must be semver (e.g. 1.0.0)" });
     return;
   }
-  await fs.mkdir(otaDir(), { recursive: true });
-  await fs.writeFile(versionPath(), trimmed, "utf8");
+  await upsertOtaRow("version", trimmed, Buffer.byteLength(trimmed, "utf8"));
   res.json({ success: true, version: trimmed });
 });
 
@@ -85,8 +99,7 @@ router.post("/ota/firmware", requireAuth, async (req: AuthRequest, res): Promise
     res.status(400).json({ error: "firmware too small — check the file" });
     return;
   }
-  await fs.mkdir(otaDir(), { recursive: true });
-  await fs.writeFile(firmwarePath(), buf);
+  await upsertOtaRow("firmware", firmwareBase64, buf.length);
   res.json({ success: true, size: buf.length });
 });
 
