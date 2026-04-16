@@ -1,0 +1,125 @@
+{
+  "schema_version": "1.0.0",
+  "repo": "vconic-app-iot-portal",
+  "repo_version": "0.0.0",
+  "archetype": "typescript-app",
+  "generated_at": "2026-04-16T15:15:49.012507+00:00",
+  "stats": {
+    "node_count": 17,
+    "edge_count": 0
+  },
+  "nodes": [
+    {
+      "id": "component:lib/api-client-react",
+      "type": "component",
+      "name": "lib/api-client-react",
+      "file": "lib/api-client-react",
+      "description": "4 source files"
+    },
+    {
+      "id": "component:lib/api-spec",
+      "type": "component",
+      "name": "lib/api-spec",
+      "file": "lib/api-spec",
+      "description": "1 source files"
+    },
+    {
+      "id": "component:lib/api-zod",
+      "type": "component",
+      "name": "lib/api-zod",
+      "file": "lib/api-zod",
+      "description": "58 source files"
+    },
+    {
+      "id": "component:lib/db",
+      "type": "component",
+      "name": "lib/db",
+      "file": "lib/db",
+      "description": "13 source files"
+    },
+    {
+      "id": "config:BASE_PATH",
+      "type": "config",
+      "name": "BASE_PATH",
+      "file": "artifacts/mockup-sandbox/vite.config.ts"
+    },
+    {
+      "id": "config:DATABASE_URL",
+      "type": "config",
+      "name": "DATABASE_URL",
+      "file": "lib/db/drizzle.config.ts"
+    },
+    {
+      "id": "config:LOG_LEVEL",
+      "type": "config",
+      "name": "LOG_LEVEL",
+      "file": "artifacts/api-server/src/lib/logger.ts"
+    },
+    {
+      "id": "config:NODE_ENV",
+      "type": "config",
+      "name": "NODE_ENV",
+      "file": "artifacts/api-server/src/lib/logger.ts"
+    },
+    {
+      "id": "config:PORT",
+      "type": "config",
+      "name": "PORT",
+      "file": "artifacts/mockup-sandbox/vite.config.ts"
+    },
+    {
+      "id": "config:REPL_ID",
+      "type": "config",
+      "name": "REPL_ID",
+      "file": "artifacts/mockup-sandbox/vite.config.ts"
+    },
+    {
+      "id": "config:RESEND_API_KEY",
+      "type": "config",
+      "name": "RESEND_API_KEY",
+      "file": "artifacts/api-server/src/index.ts"
+    },
+    {
+      "id": "config:RESEND_FROM_EMAIL",
+      "type": "config",
+      "name": "RESEND_FROM_EMAIL",
+      "file": "artifacts/api-server/src/index.ts"
+    },
+    {
+      "id": "interface:npm-build",
+      "type": "interface",
+      "name": "npm run build",
+      "description": "pnpm run typecheck && pnpm -r --if-present run build",
+      "file": "package.json"
+    },
+    {
+      "id": "interface:npm-preinstall",
+      "type": "interface",
+      "name": "npm run preinstall",
+      "description": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use p",
+      "file": "package.json"
+    },
+    {
+      "id": "interface:npm-typecheck",
+      "type": "interface",
+      "name": "npm run typecheck",
+      "description": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run t",
+      "file": "package.json"
+    },
+    {
+      "id": "interface:npm-typecheck:libs",
+      "type": "interface",
+      "name": "npm run typecheck:libs",
+      "description": "tsc --build",
+      "file": "package.json"
+    },
+    {
+      "id": "document:readme-md",
+      "type": "document",
+      "name": "README.md",
+      "file": "README.md"
+    }
+  ],
+  "edges": [],
+  "subsystems": []
+}
